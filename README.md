@@ -5,7 +5,11 @@ Takılan CD/DVD'yi seçilen klasöre kopyalar, kopyalama bitince diski çıkarı
 ## Çalıştırma
 
 1. Python 3.8+ kurulu olmalı (python.org; kurulumda "Add python.exe to PATH").
-2. `baslat.bat` → pencere açılır.
+2. `kurulum.bat` → klasörde `.venv` oluşturur, masaüstüne "CD Kopyalayici" kısayolu koyar (bir kez).
+3. `baslat.bat` ya da kısayol → pencere açılır.
+4. `guncelle.bat` → GitHub'dan son sürümü çeker (`git pull`). Ayarlar korunur.
+
+Klasör başka bilgisayara taşınırsa orada bir kez `kurulum.bat` çalıştırın; çalışmayan `.venv` yeniden kurulur.
 
 ## Kullanım
 

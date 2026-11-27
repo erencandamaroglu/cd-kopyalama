@@ -1,0 +1,2 @@
+# Şimdilik ek paket yok: yalnızca Python standart kütüphanesi (tkinter, ctypes) kullanılıyor.
+# Paket eklenirse buraya yazılır; kurulum.bat ve guncelle.bat kendiliğinden kurar.
