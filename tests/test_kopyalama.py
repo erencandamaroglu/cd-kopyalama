@@ -62,6 +62,12 @@ class KopyalamaTesti(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "müzik"):
             kopyalama.diski_kopyala(str(kaynak), Path(GECICI) / "hedef4", "M", threading.Event(), hic)
 
+    def test_ikon_yerel_kopyasi(self):
+        self.assertTrue(yollar.IKON.exists(), "varliklar/ikon.ico yok: python tools/ikon_olustur.py")
+        kopya = yollar.yerel_ikon()
+        self.assertEqual(kopya.parent, yollar.veri_klasoru())
+        self.assertEqual(kopya.read_bytes(), yollar.IKON.read_bytes())
+
     def test_ayar_kaydedilir(self):
         yollar.ayar_yaz(hedef=r"C:\deneme")
         self.assertEqual(yollar.ayar_oku()["hedef"], r"C:\deneme")

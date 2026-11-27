@@ -7,8 +7,9 @@ from datetime import datetime
 from tkinter import filedialog, messagebox, ttk
 
 from cdkopya import surucu
+from cdkopya.gorev_cubugu import pencereye_ikon_ver, surece_kimlik_ver
 from cdkopya.kopyalama import Iptal, diski_kopyala
-from cdkopya.yollar import ayar_oku, ayar_yaz
+from cdkopya.yollar import ayar_oku, ayar_yaz, yerel_ikon
 
 BASLIK = "CD Kopyalayıcı"
 YOKLAMA_SN = 2
@@ -16,8 +17,10 @@ YOKLAMA_SN = 2
 
 class AnaPencere(tk.Tk):
     def __init__(self):
+        surece_kimlik_ver()
         super().__init__()
         self.title(BASLIK)
+        self.ikon_ayarla()
         self.geometry("580x360")
         self.minsize(460, 300)
         self.mesajlar = queue.Queue()
@@ -53,6 +56,15 @@ class AnaPencere(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.kapat)
         threading.Thread(target=self.izle, daemon=True).start()
         self.mesajlari_isle()
+
+    def ikon_ayarla(self):
+        """Başlık çubuğu, Alt+Tab ve görev çubuğu ikonu. İkon yoksa ya da okunamazsa program yine açılır."""
+        try:
+            self.iconbitmap(default=str(yerel_ikon()))  # default: açılan diyaloglar da aynı ikonu alır
+        except tk.TclError:
+            return
+        self.update_idletasks()
+        pencereye_ikon_ver(int(self.wm_frame(), 16))
 
     def klasor_sec(self):
         secilen = filedialog.askdirectory(initialdir=self.hedef or None)

@@ -41,11 +41,13 @@ exit /b 1
 if not errorlevel 1 set "PY=%~1"
 exit /b 0
 :kisayol_olustur
-rem Masaustune konsolsuz acan kisayol: hedef .venv\Scripts\pythonw.exe main.py
+rem Hedefi ag surucusunde olan kisayolun ikonunu Explorer gostermez: hedef yerel cmd.exe (kucultulmus,
+rem baslat.bat'i calistirir), ikon %USERPROFILE%\CdKopyalama altindaki yerel kopya.
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$k = (Get-Location).Path; $ws = New-Object -ComObject WScript.Shell;" ^
   "$l = $ws.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'CD Kopyalayici.lnk'));" ^
-  "$l.TargetPath = Join-Path $k '.venv\Scripts\pythonw.exe'; $l.Arguments = 'main.py'; $l.WorkingDirectory = $k;" ^
-  "$l.Description = 'CD Kopyalayici'; $l.Save()"
+  "$l.TargetPath = $env:ComSpec; $l.Arguments = '/c ' + [char]34 + (Join-Path $k 'baslat.bat') + [char]34; $l.WorkingDirectory = $k; $l.WindowStyle = 7;" ^
+  "$i = Join-Path $env:USERPROFILE 'CdKopyalama\ikon.ico'; New-Item -ItemType Directory -Force (Split-Path $i) | Out-Null;" ^
+  "Copy-Item (Join-Path $k 'varliklar\ikon.ico') $i -Force; $l.IconLocation = $i + ',0'; $l.Description = 'CD Kopyalayici'; $l.Save()"
 if errorlevel 1 (echo Kisayol olusturulamadi.) else (echo Masaustune "CD Kopyalayici" kisayolu olusturuldu.)
 exit /b 0

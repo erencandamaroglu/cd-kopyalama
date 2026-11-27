@@ -24,6 +24,16 @@ Klasör başka bilgisayara taşınırsa orada bir kez `kurulum.bat` çalıştır
 
 Ayarlar ve hata kaydı: `%USERPROFILE%\CdKopyalama`.
 
+## İkon
+
+`varliklar/ikon.ico`, `tools/ikon_olustur.py` ile çizilir (Pillow gerekir, yalnızca ikonu yeniden üretmek için):
+
+```
+python tools\ikon_olustur.py
+```
+
+Sonra masaüstü kısayolu için `kurulum.bat` bir kez yeniden çalıştırılır.
+
 ## Testler
 
 ```
