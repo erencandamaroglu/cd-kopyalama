@@ -14,7 +14,7 @@ Klasör başka bilgisayara taşınırsa orada bir kez `kurulum.bat` çalıştır
 ## Kullanım
 
 1. **Seç...** ile kopyalanacak klasörü belirleyin (hatırlanır).
-2. CD'yi takın; kopyalama kendiliğinden başlar. **İptal** ile durdurulabilir.
+2. CD'yi takın; kopyalama kendiliğinden başlar. Durum satırında yüzde, tahmini kalan süre ve okuma hızı görünür. **İptal** ile durdurulabilir.
 3. Bitince CD çıkar, program sıradaki CD'yi bekler.
 
 - Her CD kendi adıyla ayrı klasöre kopyalanır; aynı ad varsa `Ad (2)` açılır, üzerine yazılmaz.

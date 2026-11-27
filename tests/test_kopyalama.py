@@ -32,9 +32,9 @@ def hic(*_):
 class KopyalamaTesti(unittest.TestCase):
     def test_icerik_aynen_kopyalanir(self):
         kaynak, hedef_kok = ornek_disk(), Path(GECICI) / "hedef1"
-        hedef, sayi, hatalar = kopyalama.diski_kopyala(
+        hedef, sayi, hatalar, toplam = kopyalama.diski_kopyala(
             str(kaynak), hedef_kok, "DISK", threading.Event(), hic)
-        self.assertEqual((sayi, hatalar), (2, []))
+        self.assertEqual((sayi, hatalar, toplam), (2, [], 3_500_000))
         self.assertEqual((hedef / "a" / "şarkı.bin").read_bytes(),
                          (kaynak / "a" / "şarkı.bin").read_bytes())
         self.assertTrue((hedef / "a" / "bos").is_dir())
@@ -71,6 +71,44 @@ class KopyalamaTesti(unittest.TestCase):
     def test_ayar_kaydedilir(self):
         yollar.ayar_yaz(hedef=r"C:\deneme")
         self.assertEqual(yollar.ayar_oku()["hedef"], r"C:\deneme")
+
+
+class SureTahminiTesti(unittest.TestCase):
+    def tahmin(self):
+        zaman = [0.0]
+        return kopyalama.SureTahmini(saat=lambda: zaman[0]), zaman
+
+    def test_ilk_saniyelerde_tahmin_yok(self):
+        tahmin, zaman = self.tahmin()
+        zaman[0] = 2
+        self.assertEqual(tahmin.guncelle(2_000_000, 10_000_000), (None, None))
+
+    def test_sabit_hizda_kalan_sure(self):
+        tahmin, zaman = self.tahmin()
+        mb = 1024 * 1024
+        for sn in range(0, 11):
+            zaman[0] = sn
+            kalan, hiz = tahmin.guncelle(sn * 2 * mb, 100 * mb)
+        self.assertAlmostEqual(hiz, 2 * mb)
+        self.assertAlmostEqual(kalan, 40)  # 80 MB kaldı, 2 MB/sn
+
+    def test_hiz_degisince_son_pencere_esas_alinir(self):
+        """İlk 30 sn 1 MB/sn, sonra 4 MB/sn: tahmin baştan ortalamaya (≈1,7) değil yeni hıza (4) yaklaşır."""
+        tahmin, zaman = self.tahmin()
+        mb, bayt = 1024 * 1024, 0
+        for sn in range(0, 61):
+            zaman[0] = sn
+            bayt += (1 if sn <= 30 else 4) * mb if sn else 0
+            kalan, hiz = tahmin.guncelle(bayt, 1000 * mb)
+        self.assertAlmostEqual(hiz / mb, 4, delta=0.1)
+
+    def test_metinler(self):
+        self.assertEqual(kopyalama.sure_metni(44.6), "45 sn")
+        self.assertEqual(kopyalama.sure_metni(200), "3 dk 20 sn")
+        self.assertEqual(kopyalama.sure_metni(184), "3 dk")
+        self.assertEqual(kopyalama.sure_metni(3900), "1 sa 05 dk")
+        self.assertEqual(kopyalama.boyut_metni(4.2 * 1024 ** 3), "4,2 GB")
+        self.assertEqual(kopyalama.boyut_metni(734 * 1024 ** 2), "734 MB")
 
 
 class IzlemeTesti(unittest.TestCase):

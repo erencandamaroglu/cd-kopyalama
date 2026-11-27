@@ -2,10 +2,67 @@
 import os
 import re
 import shutil
+import time
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 
 PARCA = 1024 * 1024  # 1 MB
+
+
+class SureTahmini:
+    """Son PENCERE_SN saniyedeki hızdan kalan süreyi tahmin eder.
+
+    CD okuma hızı diskin içinden dışına doğru değişir ve okunamayan bölgelerde düşer; baştan beri ortalama yerine
+    kayan pencere kullanılır. İlk EN_AZ_SN saniye tahmin verilmez (disk dönmeye başlarken hız yanıltıcı).
+    """
+
+    PENCERE_SN = 15
+    EN_AZ_SN = 3
+
+    def __init__(self, saat=time.monotonic):
+        self.saat = saat
+        self.baslangic = saat()
+        self.ornekler = deque()
+
+    def guncelle(self, tamam, toplam):
+        """(kalan saniye ya da None, bayt/sn hız ya da None)."""
+        simdi = self.saat()
+        self.ornekler.append((simdi, tamam))
+        while len(self.ornekler) > 2 and simdi - self.ornekler[1][0] >= self.PENCERE_SN:
+            self.ornekler.popleft()
+        ilk_zaman, ilk_bayt = self.ornekler[0]
+        aralik = simdi - ilk_zaman
+        if simdi - self.baslangic < self.EN_AZ_SN or aralik <= 0 or tamam <= ilk_bayt:
+            return None, None
+        hiz = (tamam - ilk_bayt) / aralik
+        return max(0.0, (toplam - tamam) / hiz), hiz
+
+    def gecen(self):
+        return self.saat() - self.baslangic
+
+
+def sure_metni(saniye):
+    """Okunaklı süre: '45 sn', '3 dk 20 sn', '1 sa 05 dk'. Bir dakikadan uzunsa 10 sn'ye yuvarlanır (titremesin)."""
+    saniye = int(round(saniye))
+    if saniye < 60:
+        return f"{saniye} sn"
+    saniye = int(round(saniye / 10) * 10)
+    sa, kalan = divmod(saniye, 3600)
+    dk, sn = divmod(kalan, 60)
+    if sa:
+        return f"{sa} sa {dk:02d} dk"
+    return f"{dk} dk {sn:02d} sn" if sn else f"{dk} dk"
+
+
+def boyut_metni(bayt):
+    """'734 MB', '4,2 GB' (Türkçe ondalık virgül)."""
+    for birim, bolen in (("GB", 1024 ** 3), ("MB", 1024 ** 2), ("KB", 1024)):
+        if bayt >= bolen:
+            deger = bayt / bolen
+            metin = f"{deger:.1f}" if deger < 10 else f"{deger:.0f}"
+            return f"{metin.replace('.', ',')} {birim}"
+    return f"{bayt} B"
 
 
 class Iptal(Exception):
@@ -48,7 +105,7 @@ def dosya_kopyala(kaynak, hedef, dur, ilerleme):
 
 
 def diski_kopyala(kaynak, ana_klasor, etiket, dur, ilerleme):
-    """(hedef klasör, dosya sayısı, hata listesi) döndürür.
+    """(hedef klasör, dosya sayısı, hata listesi, toplam bayt) döndürür.
 
     ilerleme(kopyalanan bayt, toplam bayt, dosya adı) çağrılır. Okunamayan dosyalar hata listesine
     yazılır, kalanlar kopyalanır. Kopyalamaya hiç başlanamıyorsa RuntimeError verir.
@@ -96,4 +153,4 @@ def diski_kopyala(kaynak, ana_klasor, etiket, dur, ilerleme):
         except OSError as e:
             hatalar.append(f"{goreli}: {e}")
         tamam = baslangic + boyut
-    return hedef, sayi, hatalar
+    return hedef, sayi, hatalar, toplam

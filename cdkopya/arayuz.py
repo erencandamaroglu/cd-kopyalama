@@ -8,7 +8,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from cdkopya import surucu
 from cdkopya.gorev_cubugu import pencereye_ikon_ver, surece_kimlik_ver
-from cdkopya.kopyalama import Iptal, diski_kopyala
+from cdkopya.kopyalama import Iptal, SureTahmini, boyut_metni, diski_kopyala, sure_metni
 from cdkopya.yollar import ayar_oku, ayar_yaz, yerel_ikon
 
 BASLIK = "CD Kopyalayıcı"
@@ -156,22 +156,30 @@ class AnaPencere(tk.Tk):
         self.gonder("durum", f"{harf} okunuyor...")
         self.gonder("kayit", f"Disk bulundu: {harf} {etiket}")
 
+        tahmin = SureTahmini()
+
         def ilerleme(tamam, toplam, ad):
             yuzde = tamam * 100 / toplam if toplam else 100
+            kalan, hiz = tahmin.guncelle(tamam, toplam)
+            if kalan is None:
+                sure = "kalan süre hesaplanıyor..."
+            else:
+                sure = f"~{sure_metni(kalan)} kaldı ({boyut_metni(hiz)}/sn)"
             self.gonder("yuzde", yuzde)
-            self.gonder("durum", f"%{yuzde:.0f} - {ad}")
+            self.gonder("durum", f"%{yuzde:.0f} - {sure} - {ad}")
 
         try:
-            hedef, sayi, hatalar = diski_kopyala(
+            hedef, sayi, hatalar, toplam = diski_kopyala(
                 f"{harf}\\", self.hedef, etiket, self.dur, ilerleme)
+            ozet = f"{boyut_metni(toplam)}, {sure_metni(tahmin.gecen())}"
             for h in hatalar:
                 self.gonder("kayit", f"HATA: {h}")
             if hatalar:
-                self.gonder("kayit", f"{sayi} dosya kopyalandı, {len(hatalar)} hata var. "
+                self.gonder("kayit", f"{sayi} dosya kopyalandı ({ozet}), {len(hatalar)} hata var. "
                                      f"Disk çıkarılmadı. Klasör: {hedef}")
             else:
                 self.gonder("yuzde", 100)
-                self.gonder("kayit", f"Tamamlandı: {sayi} dosya -> {hedef}")
+                self.gonder("kayit", f"Tamamlandı: {sayi} dosya ({ozet}) -> {hedef}")
                 self.gonder("durum", "Disk çıkarılıyor...")
                 self.gonder("kayit", "Disk çıkarıldı." if surucu.diski_cikar(harf)
                             else "Disk çıkarılamadı, elle çıkarın.")
