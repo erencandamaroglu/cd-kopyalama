@@ -13,7 +13,6 @@ from ctypes import HRESULT, POINTER, WINFUNCTYPE, Structure, byref, c_ubyte, c_u
 from .yollar import PROJE, yerel_ikon
 
 KIMLIK = "CdKopyalayici.Uygulama"
-GORUNEN_AD = "CD Kopyalayıcı"
 
 
 class _GUID(Structure):
@@ -42,7 +41,7 @@ def surece_kimlik_ver():
         pass
 
 
-def pencereye_ikon_ver(hwnd):
+def pencereye_ikon_ver(hwnd, gorunen_ad="CD Kopyalayıcı"):
     """Pencereye görev çubuğu kimliği, ikonu ve yeniden açma komutu verir. Hata olursa sessiz geçer."""
     if sys.platform != "win32":
         return False
@@ -60,7 +59,7 @@ def pencereye_ikon_ver(hwnd):
         # baslat.bat sürücü harfiyle (Y:\...) verilir: cmd UNC klasörüne geçemez.
         baslat = os.path.join(str(PROJE), "baslat.bat")
         for pid, deger in ((2, f'{os.environ.get("ComSpec", "cmd.exe")} /c "{baslat}"'), (3, f"{yerel_ikon()},0"),
-                           (4, GORUNEN_AD), (5, KIMLIK)):
+                           (4, gorunen_ad), (5, KIMLIK)):
             tamponlar.append(ctypes.create_unicode_buffer(deger))
             deger_yaz(magaza, byref(_PROPERTYKEY(fmt, pid)),
                       byref(_PROPVARIANT(vt=31, p=ctypes.cast(tamponlar[-1], c_void_p))))

@@ -7,7 +7,20 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 
+from .dil import t
+
 PARCA = 1024 * 1024  # 1 MB
+
+
+class KopyalamaHatasi(Exception):
+    """Kopyalamaya hiç başlanamadı. `anahtar` dil.py'deki metnin anahtarıdır; str() seçili dilde verir."""
+
+    def __init__(self, anahtar):
+        super().__init__(anahtar)
+        self.anahtar = anahtar
+
+    def __str__(self):
+        return t(self.anahtar)
 
 
 class SureTahmini:
@@ -43,25 +56,26 @@ class SureTahmini:
 
 
 def sure_metni(saniye):
-    """Okunaklı süre: '45 sn', '3 dk 20 sn', '1 sa 05 dk'. Bir dakikadan uzunsa 10 sn'ye yuvarlanır (titremesin)."""
+    """Okunaklı süre, seçili dilde: '45 sn', '3 dk 20 sn', '1 sa 05 dk'.
+    Bir dakikadan uzunsa 10 sn'ye yuvarlanır (titremesin)."""
     saniye = int(round(saniye))
     if saniye < 60:
-        return f"{saniye} sn"
+        return t("sure_sn", sn=saniye)
     saniye = int(round(saniye / 10) * 10)
     sa, kalan = divmod(saniye, 3600)
     dk, sn = divmod(kalan, 60)
     if sa:
-        return f"{sa} sa {dk:02d} dk"
-    return f"{dk} dk {sn:02d} sn" if sn else f"{dk} dk"
+        return t("sure_sa_dk", sa=sa, dk=dk)
+    return t("sure_dk_sn", dk=dk, sn=sn) if sn else t("sure_dk", dk=dk)
 
 
 def boyut_metni(bayt):
-    """'734 MB', '4,2 GB' (Türkçe ondalık virgül)."""
+    """'734 MB', '4,2 GB' (ondalık ayracı seçili dilde)."""
     for birim, bolen in (("GB", 1024 ** 3), ("MB", 1024 ** 2), ("KB", 1024)):
         if bayt >= bolen:
             deger = bayt / bolen
             metin = f"{deger:.1f}" if deger < 10 else f"{deger:.0f}"
-            return f"{metin.replace('.', ',')} {birim}"
+            return f"{metin.replace('.', t('ondalik'))} {birim}"
     return f"{bayt} B"
 
 
@@ -108,7 +122,7 @@ def diski_kopyala(kaynak, ana_klasor, etiket, dur, ilerleme):
     """(hedef klasör, dosya sayısı, hata listesi, toplam bayt) döndürür.
 
     ilerleme(kopyalanan bayt, toplam bayt, dosya adı) çağrılır. Okunamayan dosyalar hata listesine
-    yazılır, kalanlar kopyalanır. Kopyalamaya hiç başlanamıyorsa RuntimeError verir.
+    yazılır, kalanlar kopyalanır. Kopyalamaya hiç başlanamıyorsa KopyalamaHatasi verir.
     """
     hatalar, klasorler, dosyalar, toplam = [], [], [], 0
     for kok, dizinler, adlar in os.walk(kaynak, onerror=lambda e: hatalar.append(str(e))):
@@ -126,12 +140,12 @@ def diski_kopyala(kaynak, ana_klasor, etiket, dur, ilerleme):
             toplam += boyut
 
     if not dosyalar:
-        raise RuntimeError("Diskte okunabilen dosya yok.")
+        raise KopyalamaHatasi("bos_disk")
     if all(y.lower().endswith(".cda") for y, _ in dosyalar):
-        raise RuntimeError("Bu bir müzik CD'si; program yalnızca veri disklerini kopyalar.")
+        raise KopyalamaHatasi("muzik_cd")
     Path(ana_klasor).mkdir(parents=True, exist_ok=True)
     if toplam > shutil.disk_usage(ana_klasor).free:
-        raise RuntimeError("Hedefte yeterli boş alan yok.")
+        raise KopyalamaHatasi("yer_yok")
 
     hedef = hedef_olustur(ana_klasor, etiket)
     for d in klasorler:

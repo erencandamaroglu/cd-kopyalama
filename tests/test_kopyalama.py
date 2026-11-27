@@ -12,7 +12,7 @@ os.environ["CDKOPYA_VERI"] = os.path.join(GECICI, "veri")
 KOK = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KOK))
 
-from cdkopya import kopyalama, surucu, yollar  # noqa: E402
+from cdkopya import dil, kopyalama, surucu, yollar  # noqa: E402
 
 
 def ornek_disk():
@@ -59,8 +59,9 @@ class KopyalamaTesti(unittest.TestCase):
     def test_muzik_cd_reddedilir(self):
         kaynak = Path(tempfile.mkdtemp(dir=GECICI))
         (kaynak / "Track01.cda").write_bytes(b"x" * 44)
-        with self.assertRaisesRegex(RuntimeError, "müzik"):
+        with self.assertRaises(kopyalama.KopyalamaHatasi) as baglam:
             kopyalama.diski_kopyala(str(kaynak), Path(GECICI) / "hedef4", "M", threading.Event(), hic)
+        self.assertEqual(baglam.exception.anahtar, "muzik_cd")
 
     def test_ikon_yerel_kopyasi(self):
         self.assertTrue(yollar.IKON.exists(), "varliklar/ikon.ico yok: python tools/ikon_olustur.py")
@@ -103,12 +104,36 @@ class SureTahminiTesti(unittest.TestCase):
         self.assertAlmostEqual(hiz / mb, 4, delta=0.1)
 
     def test_metinler(self):
+        dil.dil_sec("tr")
         self.assertEqual(kopyalama.sure_metni(44.6), "45 sn")
         self.assertEqual(kopyalama.sure_metni(200), "3 dk 20 sn")
         self.assertEqual(kopyalama.sure_metni(184), "3 dk")
         self.assertEqual(kopyalama.sure_metni(3900), "1 sa 05 dk")
         self.assertEqual(kopyalama.boyut_metni(4.2 * 1024 ** 3), "4,2 GB")
         self.assertEqual(kopyalama.boyut_metni(734 * 1024 ** 2), "734 MB")
+
+
+class DilTesti(unittest.TestCase):
+    def tearDown(self):
+        dil.dil_sec("tr")
+
+    def test_her_dilde_ayni_anahtarlar_ve_alanlar(self):
+        import string
+        alanlar = lambda m: sorted(a[1] for a in string.Formatter().parse(m) if a[1])  # noqa: E731
+        tr, en = dil.METINLER["tr"], dil.METINLER["en"]
+        self.assertEqual(set(tr), set(en))
+        for anahtar in tr:
+            self.assertEqual(alanlar(tr[anahtar]), alanlar(en[anahtar]), anahtar)
+
+    def test_ingilizce_metinler(self):
+        dil.dil_sec("en")
+        self.assertEqual(kopyalama.sure_metni(200), "3 min 20 s")
+        self.assertEqual(kopyalama.boyut_metni(4.2 * 1024 ** 3), "4.2 GB")
+        self.assertEqual(str(kopyalama.KopyalamaHatasi("yer_yok")), "Not enough free space at the destination.")
+
+    def test_bilinmeyen_dil_ingilizceye_duser(self):
+        dil.dil_sec("de")
+        self.assertEqual(dil.secili(), "en")
 
 
 class IzlemeTesti(unittest.TestCase):

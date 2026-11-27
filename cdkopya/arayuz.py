@@ -6,12 +6,12 @@ import tkinter as tk
 from datetime import datetime
 from tkinter import filedialog, messagebox, ttk
 
-from cdkopya import surucu
+from cdkopya import dil, surucu
+from cdkopya.dil import t
 from cdkopya.gorev_cubugu import pencereye_ikon_ver, surece_kimlik_ver
 from cdkopya.kopyalama import Iptal, SureTahmini, boyut_metni, diski_kopyala, sure_metni
 from cdkopya.yollar import ayar_oku, ayar_yaz, yerel_ikon
 
-BASLIK = "CD Kopyalayıcı"
 YOKLAMA_SN = 2
 
 
@@ -19,43 +19,71 @@ class AnaPencere(tk.Tk):
     def __init__(self):
         surece_kimlik_ver()
         super().__init__()
-        self.title(BASLIK)
-        self.ikon_ayarla()
-        self.geometry("580x360")
-        self.minsize(460, 300)
+        ayarlar = ayar_oku()
+        dil.dil_sec(ayarlar.get("dil") or dil.sistem_dili())
+        self.geometry("600x360")
+        self.minsize(480, 300)
         self.mesajlar = queue.Queue()
         self.dur = threading.Event()
         self.kapan = threading.Event()
         self.kopyalaniyor = False
-        self.hedef = str(ayar_oku().get("hedef") or "")
+        self.hedef = str(ayarlar.get("hedef") or "")
 
         cerceve = ttk.Frame(self, padding=12)
         cerceve.pack(fill="both", expand=True)
-        ttk.Label(cerceve, text="Kopyalanacak klasör:").pack(anchor="w")
         satir = ttk.Frame(cerceve)
-        satir.pack(fill="x", pady=(2, 10))
+        satir.pack(fill="x")
+        self.hedef_etiket = ttk.Label(satir)
+        self.hedef_etiket.pack(side="left", anchor="s")
+        self.dil_kutusu = ttk.Combobox(satir, values=list(dil.DILLER.values()), state="readonly", width=9)
+        self.dil_kutusu.set(dil.DILLER[dil.secili()])
+        self.dil_kutusu.bind("<<ComboboxSelected>>", self.dil_degisti)
+        self.dil_kutusu.pack(side="right")
+
+        satir = ttk.Frame(cerceve)
+        satir.pack(fill="x", pady=(4, 10))
         self.yol = tk.StringVar(value=self.hedef)
         ttk.Entry(satir, textvariable=self.yol, state="readonly").pack(
             side="left", fill="x", expand=True)
-        ttk.Button(satir, text="Seç...", command=self.klasor_sec).pack(
-            side="left", padx=(6, 0))
+        self.sec_dugmesi = ttk.Button(satir, command=self.klasor_sec)
+        self.sec_dugmesi.pack(side="left", padx=(6, 0))
 
-        self.durum = tk.StringVar(value="Başlatılıyor...")
+        self.durum = tk.StringVar()
         ttk.Label(cerceve, textvariable=self.durum).pack(anchor="w")
         satir = ttk.Frame(cerceve)
         satir.pack(fill="x", pady=(4, 10))
         self.cubuk = ttk.Progressbar(satir, maximum=100)
         self.cubuk.pack(side="left", fill="x", expand=True)
-        self.iptal = ttk.Button(satir, text="İptal", command=self.dur.set, state="disabled")
+        self.iptal = ttk.Button(satir, command=self.dur.set, state="disabled")
         self.iptal.pack(side="left", padx=(6, 0))
 
         self.kayit = tk.Text(cerceve, height=8, state="disabled", wrap="word",
                              font=("Segoe UI", 9))
         self.kayit.pack(fill="both", expand=True)
 
+        self.metinleri_yaz()
+        self.durum.set(t("baslatiliyor"))
+        self.ikon_ayarla()
         self.protocol("WM_DELETE_WINDOW", self.kapat)
         threading.Thread(target=self.izle, daemon=True).start()
         self.mesajlari_isle()
+
+    def metinleri_yaz(self):
+        """Sabit arayüz metinleri seçili dilde. Durum satırı izleme döngüsünde kendiliğinden yenilenir;
+        kayıttaki eski satırlar yazıldıkları dilde kalır."""
+        self.title(t("baslik"))
+        self.hedef_etiket.config(text=t("hedef_etiket"))
+        self.sec_dugmesi.config(text=t("sec"))
+        self.iptal.config(text=t("iptal"))
+
+    def dil_degisti(self, _olay=None):
+        kod = next(k for k, ad in dil.DILLER.items() if ad == self.dil_kutusu.get())
+        dil.dil_sec(kod)
+        self.metinleri_yaz()
+        try:
+            ayar_yaz(dil=kod)
+        except OSError as e:
+            self.yaz(t("ayar_kaydedilemedi", hata=e))
 
     def ikon_ayarla(self):
         """Başlık çubuğu, Alt+Tab ve görev çubuğu ikonu. İkon yoksa ya da okunamazsa program yine açılır."""
@@ -64,7 +92,7 @@ class AnaPencere(tk.Tk):
         except tk.TclError:
             return
         self.update_idletasks()
-        pencereye_ikon_ver(int(self.wm_frame(), 16))
+        pencereye_ikon_ver(int(self.wm_frame(), 16), t("baslik"))
 
     def klasor_sec(self):
         secilen = filedialog.askdirectory(initialdir=self.hedef or None)
@@ -72,18 +100,17 @@ class AnaPencere(tk.Tk):
             return
         secilen = os.path.normpath(secilen)
         if os.path.splitdrive(secilen)[0].upper() in surucu.cd_suruculeri():
-            messagebox.showerror(BASLIK, "Hedef olarak CD sürücüsü seçilemez.")
+            messagebox.showerror(t("baslik"), t("cd_hedef_olamaz"))
             return
         self.hedef = secilen
         self.yol.set(secilen)
         try:
             ayar_yaz(hedef=secilen)
         except OSError as e:
-            self.yaz(f"Ayar kaydedilemedi: {e}")
+            self.yaz(t("ayar_kaydedilemedi", hata=e))
 
     def kapat(self):
-        if self.kopyalaniyor and not messagebox.askyesno(
-                BASLIK, "Kopyalama sürüyor. Yine de çıkılsın mı?"):
+        if self.kopyalaniyor and not messagebox.askyesno(t("baslik"), t("cikis_onay")):
             return
         self.kapan.set()
         self.dur.set()
@@ -124,11 +151,11 @@ class AnaPencere(tk.Tk):
             try:
                 suruculer = surucu.cd_suruculeri()
                 if not suruculer:
-                    durum = "CD sürücüsü bulunamadı."
+                    durum = t("surucu_yok")
                 elif not self.hedef:
-                    durum = "Önce kopyalanacak klasörü seçin."
+                    durum = t("klasor_secin")
                 else:
-                    durum = "CD bekleniyor... (" + ", ".join(suruculer) + ")"
+                    durum = t("bekleniyor", suruculer=", ".join(suruculer))
                 self.gonder("durum", durum)
                 for s in list(islenen):
                     if s not in suruculer:
@@ -143,7 +170,7 @@ class AnaPencere(tk.Tk):
                     if self.kapan.is_set():
                         break
             except Exception as e:
-                self.gonder("kayit", f"HATA: {e}")
+                self.gonder("kayit", t("hata", hata=e))
             self.kapan.wait(YOKLAMA_SN)
 
     def diski_isle(self, harf, etiket):
@@ -153,40 +180,37 @@ class AnaPencere(tk.Tk):
         self.kopyalaniyor = True
         self.gonder("mesgul", True)
         self.gonder("yuzde", 0)
-        self.gonder("durum", f"{harf} okunuyor...")
-        self.gonder("kayit", f"Disk bulundu: {harf} {etiket}")
-
+        self.gonder("durum", t("okunuyor", harf=harf))
+        self.gonder("kayit", t("disk_bulundu", harf=harf, etiket=etiket))
         tahmin = SureTahmini()
 
         def ilerleme(tamam, toplam, ad):
             yuzde = tamam * 100 / toplam if toplam else 100
             kalan, hiz = tahmin.guncelle(tamam, toplam)
             if kalan is None:
-                sure = "kalan süre hesaplanıyor..."
+                sure = t("hesaplaniyor")
             else:
-                sure = f"~{sure_metni(kalan)} kaldı ({boyut_metni(hiz)}/sn)"
+                sure = t("kaldi", sure=sure_metni(kalan), hiz=boyut_metni(hiz))
             self.gonder("yuzde", yuzde)
-            self.gonder("durum", f"%{yuzde:.0f} - {sure} - {ad}")
+            self.gonder("durum", t("ilerleme", yuzde=f"{yuzde:.0f}", sure=sure, ad=ad))
 
         try:
             hedef, sayi, hatalar, toplam = diski_kopyala(
                 f"{harf}\\", self.hedef, etiket, self.dur, ilerleme)
             ozet = f"{boyut_metni(toplam)}, {sure_metni(tahmin.gecen())}"
             for h in hatalar:
-                self.gonder("kayit", f"HATA: {h}")
+                self.gonder("kayit", t("hata", hata=h))
             if hatalar:
-                self.gonder("kayit", f"{sayi} dosya kopyalandı ({ozet}), {len(hatalar)} hata var. "
-                                     f"Disk çıkarılmadı. Klasör: {hedef}")
+                self.gonder("kayit", t("hatali_bitti", sayi=sayi, ozet=ozet, hata_sayisi=len(hatalar), hedef=hedef))
             else:
                 self.gonder("yuzde", 100)
-                self.gonder("kayit", f"Tamamlandı: {sayi} dosya ({ozet}) -> {hedef}")
-                self.gonder("durum", "Disk çıkarılıyor...")
-                self.gonder("kayit", "Disk çıkarıldı." if surucu.diski_cikar(harf)
-                            else "Disk çıkarılamadı, elle çıkarın.")
+                self.gonder("kayit", t("tamamlandi", sayi=sayi, ozet=ozet, hedef=hedef))
+                self.gonder("durum", t("cikariliyor"))
+                self.gonder("kayit", t("cikarildi") if surucu.diski_cikar(harf) else t("cikarilamadi"))
         except Iptal:
-            self.gonder("kayit", "İptal edildi. Kopyalanan dosyalar hedefte kaldı.")
+            self.gonder("kayit", t("iptal_edildi"))
         except Exception as e:
-            self.gonder("kayit", f"HATA: {e} Disk çıkarılmadı.")
+            self.gonder("kayit", t("hata_cikarilmadi", hata=e))
         finally:
             self.kopyalaniyor = False
             self.gonder("mesgul", False)
